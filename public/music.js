@@ -13,7 +13,8 @@ export function readSong(song) {
     const syllables = words?.trim().split(/\s+/);
     const start = beat;
     const notes = music.split(/\s+/).map((token, i) => {
-      const match = /^([A-G])([b#]?)(\d)(?:@(\d))?(?::([.\d]+))?$/.exec(token);
+      const tied = token.startsWith('~');
+      const match = /^~?([A-G])([b#]?)(\d)(?:@(\d))?(?::([.\d]+))?$/.exec(token);
       if (!match) throw new Error('Invalid note ' + token);
       const [, letter, accidental, octave, preferredString, length] = match;
       const midi = 12 * (Number(octave) + 1) + semitones[letter] + ({ b: -1, '#': 1, '': 0 })[accidental];
@@ -22,19 +23,35 @@ export function readSong(song) {
         choices.filter(p => p.fret >= 0).sort((a, b) => a.fret - b.fret)[0];
       const beats = Number(length ?? 1);
       if (!position || position.fret < 0 || position.fret > 15 || !durations[beats]) throw new Error('Unplayable note ' + token);
-      const event = { ...position, index: events.length, bar, beat, beats, midi, pitch: letter + accidental + octave,
-        key: letter.toLowerCase() + accidental + '/' + octave, lyric: syllables?.[i] ?? '' };
+      const prior = events.at(-1);
+      if (tied && (!prior || prior.midi !== midi || prior.string !== position.string)) throw new Error('Invalid tie ' + token);
+      const event = { ...position, tied, index: events.length, bar, beat, beats, midi, pitch: letter + accidental + octave,
+        key: letter.toLowerCase() + accidental + '/' + octave, lyric: syllables?.[i] === '_' ? '' : syllables?.[i] ?? '' };
       events.push(event);
       beat += beats;
       return event;
     });
     if (syllables && syllables.length !== notes.length) throw new Error('Check lyrics in bar ' + (bar + 1));
-    if (beat - start !== song.meter[0] * 4 / song.meter[1]) throw new Error('Check rhythm in bar ' + (bar + 1));
+    const full = song.meter[0] * 4 / song.meter[1];
+    let expected = full;
+    if (song.pickup && bar === 0) expected = song.pickup;
+    if (song.pickup && bar === song.bars.length - 1) expected = full - song.pickup;
+    if (beat - start !== expected) throw new Error('Check rhythm in bar ' + (bar + 1));
     return notes;
   });
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i], next = events[i + 1];
+    event.soundEnd = next?.tied ? next.soundEnd : event.beat + event.beats;
+    event.afterTie = next?.tied ? next.afterTie : i + 1;
+  }
   return { ...song, bars, events, beats: beat };
 }
 
 export function fingering(note) {
   return strings[note.string - 1].name + ' string, ' + (note.fret ? 'fret ' + note.fret : 'open');
+}
+
+export function barNumber(song, index) {
+  const number = index + (song.pickup ? 0 : 1);
+  return number ? 'Bar ' + number : 'Pickup';
 }

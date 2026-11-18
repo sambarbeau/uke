@@ -108,3 +108,24 @@ select { appearance:none; padding-right:1.75rem; background:linear-gradient(45de
 #restart { display:grid; place-items:center; min-width:40px; }
 .rewind-icon { position:relative; display:block; border-right:8px solid currentColor; border-block:5px solid transparent; }
 .rewind-icon::before { position:absolute; content:""; width:2px; height:10px; left:-3px; top:-5px; background:currentColor; }
+.modes,.lesson-links { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1.2rem; }
+.modes { border-bottom:1px solid var(--line); margin:1rem 0; }
+.modes button { background:transparent; border:0; border-radius:0; border-bottom:2px solid transparent; padding:.3rem 0; }
+.modes button[aria-pressed=true] { border-color:var(--ink); }
+#lesson-teacher,#sheet-view p,#exercise { font-size:.94rem; }
+#exercise { margin-top:.8rem; color:var(--muted); }
+.lesson-stage { display:grid; place-items:center; background:#e5e4de; border:1px solid var(--line); border-radius:3px; overflow:hidden; aspect-ratio:16/9; margin:.6rem 0; }
+.lesson-stage > * { grid-area:1/1; }
+#video-holder:not(:empty),#video-holder iframe { width:100%; height:100%; border:0; display:block; }
+.lesson-links { margin:.7rem 0 .4rem; font-size:.9rem; }
+.lesson-links a:hover,#attached-sheet a:hover { text-decoration:underline; }
+.file-button { display:inline-block; position:relative; cursor:pointer; background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:.4rem .7rem; margin:.65rem 0; font-size:.9rem; }
+.file-button input { position:absolute; inset:0; opacity:0; width:100%; cursor:pointer; }
+.file-button:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+#attached-sheet a { display:block; margin:.4rem 0; overflow-wrap:anywhere; }
+#attached-sheet iframe { width:100%; height:70vh; border:1px solid var(--line); }
+
+#load-video { width:100%; height:100%; position:relative; padding:0; border:0; display:grid; place-items:center; overflow:hidden; background:var(--ink); }
+#load-video img { position:absolute; width:100%; height:100%; object-fit:cover; }
+#load-video span { position:relative; padding:.65rem 1rem; border-radius:3px; background:var(--ink); color:white; }
+#load-video:focus-visible { outline-offset:-4px; }

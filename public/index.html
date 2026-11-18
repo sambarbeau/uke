@@ -26,7 +26,7 @@
         <aside>
           <div class="library"><h2>Songs</h2><div id="songs"></div></div>
           <label class="mobile-library">Song <select id="song-select"></select></label>
-          <div class="finger-panel">
+          <div class="finger-panel" id="finger-panel">
             <h2>Fingering</h2>
             <p class="finger-note" id="finger-note"></p>
             <div id="fingerboard" aria-hidden="true"></div>
@@ -36,6 +36,21 @@
         <div class="music">
           <div class="paper">
             <div class="song-heading"><h2 id="title"></h2><p id="credit"></p></div>
+            <div class="modes" id="modes" hidden aria-label="Practice material">
+              <button id="mode-score" aria-pressed="true">Score</button><button id="mode-lesson" aria-pressed="false">Video lesson</button><button id="mode-sheet" aria-pressed="false">My sheet</button>
+            </div>
+            <div id="lesson-view" hidden>
+              <p id="lesson-teacher"></p>
+              <div class="lesson-stage"><button id="load-video"><img id="lesson-image" alt="" referrerpolicy="no-referrer"><span>Play video lesson</span></button><div id="video-holder"></div></div>
+              <div class="lesson-links"><a id="watch-video" target="_blank" rel="noopener">Watch on YouTube</a><a id="video-sheet" target="_blank" rel="noopener">Published score (purchase)</a></div>
+            </div>
+            <div id="sheet-view" hidden>
+              <p>Choose your PDF score for this song. It stays in this browser.</p>
+              <label class="file-button"><span id="sheet-label">Choose PDF</span><input type="file" accept="application/pdf,.pdf" id="pdf-file"></label>
+              <p role="status" class="feedback" id="sheet-status"></p><div id="attached-sheet"></div>
+            </div>
+            <div id="score-view">
+            <p id="exercise" hidden></p>
             <div class="transport" aria-label="Playback">
               <div class="play-buttons"><button id="play" class="primary"><span class="play-icon" aria-hidden="true"></span><span id="play-text">Play</span></button>
                 <button id="restart" title="Back to start" aria-label="Back to start"><span class="rewind-icon" aria-hidden="true"></span></button>
@@ -48,6 +63,7 @@
             <details class="tab-guide"><summary>How to read this score</summary><p>Tap a note to hear it and see its fingering. Read the four lines beneath the staff as strings A, E, C, G from top to bottom. The number is the fret to press. A 0 means to play the open string.</p></details>
             <div class="score-meta"><span id="score-info"></span><span id="position"></span></div>
             <div id="score" role="group" aria-label="Interactive score"></div>
+            </div>
           </div>
         </div>
       </section>

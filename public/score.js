@@ -1,4 +1,4 @@
-import { durations, fingering, strings } from './music.js';
+import { durations, fingering, strings, barNumber } from './music.js';
 
 function svgElement(name, attrs, text) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', name);
@@ -48,7 +48,7 @@ export function drawScore(container, song, firstBar, lastBar) {
     line.className = 'system';
     container.append(line);
     const renderer = new VF.Renderer(line, VF.Renderer.Backends.SVG);
-    const lyrics = measures.some(({ bar }) => bar.some(n => n.lyric));
+    const lyrics = Boolean(song.chords) || measures.some(({ bar }) => bar.some(n => n.lyric));
     const offset = lyrics ? 17 : 0;
     const height = 147 + offset;
     renderer.resize(width, height);
@@ -57,11 +57,12 @@ export function drawScore(container, song, firstBar, lastBar) {
     const svg = line.querySelector('svg');
     const first = measures[0].bar[0].bar;
     svg.setAttribute('role', 'group');
-    svg.setAttribute('aria-label', 'Bars ' + (first + 1) + ' to ' + (first + measures.length));
+    svg.setAttribute('aria-label', barNumber(song,first) + ' through ' + barNumber(song,first + measures.length - 1));
     const weightSum = measures.reduce((sum, m) => sum + m.weight, 0);
     const lead = first === firstBar ? 68 : 46;
     const available = width - 10 - lead;
     let x = 4;
+    const engravings = new Map();
     measures.forEach(({ bar, weight }, m) => {
       const start = m === 0;
       const barWidth = available * weight / weightSum + (start ? lead : 0);
@@ -93,23 +94,32 @@ export function drawScore(container, song, firstBar, lastBar) {
       });
       const frets = bar.map(n => new VF.TabNote({ positions:[{ str:n.string, fret:n.fret }], duration:durations[n.beats] }));
       const time = { num_beats:song.meter[0], beat_value:song.meter[1] };
-      const melody = new VF.Voice(time).addTickables(notes), tablature = new VF.Voice(time).addTickables(frets);
+      const voiceMode = song.pickup && (bar[0].bar === 0 || bar[0].bar === song.bars.length - 1) ? VF.Voice.Mode.SOFT : VF.Voice.Mode.STRICT;
+      const melody = new VF.Voice(time).setMode(voiceMode).addTickables(notes);
+      const tablature = new VF.Voice(time).setMode(voiceMode).addTickables(frets);
       VF.Accidental.applyAccidentals([melody], song.key);
-      const beams = VF.Beam.generateBeams(notes);
+      const beams = VF.Beam.generateBeams(notes, { groups:VF.Beam.getDefaultBeamGroups(song.meter.join('/')) });
       new VF.Formatter().joinVoices([melody]).joinVoices([tablature]).formatToStave([melody, tablature], stave);
       melody.draw(ctx, stave); tablature.draw(ctx, tab);
       beams.forEach(b => b.setContext(ctx).draw());
       const centers = notes.map(n => n.getNoteHeadBeginX() + n.getGlyphWidth()/2);
       bar.forEach((n, j) => {
         const center = centers[j];
+        engravings.set(n.index,notes[j]);
+        if (song.chords && j === 0) svg.append(svgElement('text', { x:center, y:23, 'text-anchor':'middle', class:'lyric' },song.chords[n.bar]));
         if (n.lyric) svg.append(svgElement('text', { x:center, y:23, 'text-anchor':'middle', class:'lyric' }, n.lyric));
         const left = j ? (centers[j-1] + center)/2 : center - Math.min(18, center - x);
         const right = centers[j+1] ? (center + centers[j+1])/2 : x + barWidth - 2;
         svg.append(svgElement('rect', { x:left, y:lyrics ? 5 : 12, width:Math.max(1,right-left), height:height - (lyrics ? 12 : 19),
           rx:3, class:'note-target', 'data-index':n.index, role:'button', tabindex:-1,
-          'aria-label':'Bar ' + (n.bar+1) + ', ' + n.pitch + ', ' + fingering(n) + (n.lyric ? ', ' + n.lyric : '') }));
+          'aria-label':barNumber(song,n.bar) + ', ' + n.pitch + ', ' + fingering(n) + (n.lyric ? ', ' + n.lyric : '') }));
       });
       x += barWidth;
     });
+    const tie = (left, right) => new VF.StaveTie({first_note:left,last_note:right,first_indices:[0],last_indices:[0]}).setContext(ctx).draw();
+    for (const [index, note] of engravings) {
+      if (song.events[index].tied) tie(engravings.get(index-1),note);
+      if (song.events[index+1]?.tied && !engravings.has(index+1)) tie(note,undefined);
+    }
   }
 }

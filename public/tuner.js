@@ -43,7 +43,7 @@ export function makeTuner() {
       stream = input;
       stream.getAudioTracks()[0].onended = () => { stop(); message.textContent = 'The microphone disconnected. Reconnect it and try again.'; };
       source = audio.createMediaStreamSource(stream); analyser = audio.createAnalyser();
-      analyser.fftSize = 2048; source.connect(analyser);
+      analyser.fftSize = audio.sampleRate > 96000 ? 4096 : 2048; source.connect(analyser);
       const buffer = new Float32Array(analyser.fftSize);
       mic.textContent = 'Stop microphone'; display('—', 'Listening for a string…', null);
       let last = -Infinity, lastSignal = -Infinity, recent = [];

@@ -1,11 +1,13 @@
 import { songs } from './songs.js';
-import { readSong, fingering } from './music.js';
+import { readSong, fingering, barNumber } from './music.js';
 import { drawScore, drawFingerboard } from './score.js';
 import { audioContext, pluck, silence } from './audio.js';
 import { makeTuner } from './tuner.js';
+import { makeLessons } from './lessons.js';
 
 const $ = id => document.getElementById(id);
-const library = songs.map(readSong), tuner = makeTuner();
+const library = songs.map(readSong), tuner = makeTuner(), lessons = makeLessons();
+let mode;
 let song, bpm, firstBar, lastBar, startBeat, endBeat, cursor, selected;
 let loop = false, playing = false, generation = 0, clock, origin, frame, tick, scheduleIndex, cycleStart;
 const buttons = new Map();
@@ -25,14 +27,15 @@ function setNote(event, follow = false) {
     $('mobile-finger').textContent = event.pitch + ' · ' + fingering(event);
     drawFingerboard($('fingerboard'), event);
   }
-  $('position').textContent = 'Bar ' + (event.bar+1) + ' of ' + song.bars.length;
+  const barCount = song.bars.length - (song.pickup ? 1 : 0);
+  $('position').textContent = song.pickup && event.bar === 0 ? 'Pickup · ' + barCount + ' bars' : barNumber(song,event.bar) + ' of ' + barCount;
   if (follow && target && previousRow !== target.ownerSVGElement) {
     const box = target.getBoundingClientRect();
     if (box.bottom > innerHeight || box.top < 0) target.scrollIntoView({ block:'center', behavior:'instant' });
   }
 }
 function render() {
-  if ($('practice').hidden) return;
+  if ($('practice').hidden || mode !== 'score') return;
   drawScore($('score'), song, firstBar, lastBar);
   targets = [];
   $('score').querySelectorAll('.note-target').forEach(t => { targets[Number(t.dataset.index)] = t; });
@@ -58,7 +61,7 @@ function updateView() {
   if (beat >= endBeat) {
     stop(false); cursor = startBeat;
     setNote(song.bars[lastBar].at(-1));
-    $('position').textContent = 'Finished · bar ' + (lastBar+1);
+    $('position').textContent = 'Finished · ' + barNumber(song,lastBar).toLowerCase();
     return;
   }
   const event = noteAt(beat);
@@ -78,9 +81,9 @@ function schedule() {
     const when = cycleStart + (event.beat - startBeat) * seconds;
     if (when >= horizon) return;
     const onset = Math.max(when, clock.currentTime);
-    const length = when + event.beats * seconds - onset;
+    const length = cycleStart + (Math.min(event.soundEnd,endBeat) - startBeat) * seconds - onset;
     if (length > .015) pluck(event.midi, onset, length);
-    scheduleIndex++;
+    scheduleIndex = event.afterTie;
   }
 }
 async function play() {
@@ -110,15 +113,27 @@ async function pick(index) {
 }
 function range() {
   stop(false);
-  const all = $('section').value === 'all';
-  firstBar = all ? 0 : Number($('section').value);
-  lastBar = all ? song.bars.length-1 : Math.min(firstBar+3, song.bars.length-1);
+  const selection = $('section').selectedOptions[0];
+  firstBar = Number(selection.value === 'all' ? 0 : selection.value);
+  lastBar = Number(selection.dataset.last ?? song.bars.length - 1);
   startBeat = song.bars[firstBar][0].beat;
   const last = song.bars[lastBar].at(-1);
   endBeat = last.beat + last.beats;
   cursor = startBeat; selected = undefined;
   setNote(song.bars[firstBar][0]); render();
 }
+function showMode(next) {
+  stop(); lessons.close(); mode = next;
+  for (const value of ['score','lesson','sheet']) {
+    $(value + '-view').hidden = value !== mode;
+    $('mode-' + value).setAttribute('aria-pressed',String(value === mode));
+  }
+  $('finger-panel').hidden = mode !== 'score';
+  if (mode === 'lesson') lessons.video(song);
+  if (mode === 'sheet') lessons.sheet(song);
+  if (mode === 'score') render();
+}
+for (const value of ['score','lesson','sheet']) $('mode-' + value).onclick = () => showMode(value);
 function loadSong(id) {
   stop(false); song = library.find(s => s.id === id) ?? library[0];
   $('title').textContent = song.title; $('credit').textContent = song.credit;
@@ -132,8 +147,22 @@ function loadSong(id) {
   }
   bpm = song.bpm; loop = false; $('repeat').checked = false;
   $('section').replaceChildren(new Option('Whole song','all'));
-  for (let i = 0; i < song.bars.length; i += 4) $('section').add(new Option('Bars ' + (i+1) + '–' + Math.min(i+4,song.bars.length), i));
+  const addPassage = (label,first,last) => {
+    const opt = new Option(label,first); opt.dataset.last = last; $('section').add(opt);
+  };
+  for (const part of song.sections ?? []) addPassage(part.label,part.first,part.last);
+  const pickup = song.pickup ? 1 : 0;
+  if (song.bars.length > 4) for (let i = pickup; i < song.bars.length; i += 4) {
+    const last = Math.min(i+3,song.bars.length-1);
+    addPassage('Bars ' + (i+1-pickup) + '–' + (last+1-pickup),i,last);
+  }
+  $('modes').hidden = !song.lesson;
+  $('mode-score').textContent = song.exercise ? 'Picking exercise' : 'Score';
+  $('exercise').hidden = !song.exercise;
+  $('exercise').textContent = song.exercise ?? '';
+  mode = undefined;
   $('message').textContent = ''; range();
+  showMode(song.exercise ? 'lesson' : 'score');
 }
 function route() {
   const hash = location.hash.slice(1), tuning = hash === 'tuner';
@@ -144,12 +173,12 @@ function route() {
   $('message').textContent = '';
   if (!tuning) {
     const next = library.find(s => s.id === hash) ?? library[0];
-    if (song !== next) loadSong(next.id); else render();
-  }
+    if (song !== next) loadSong(next.id); else showMode(mode);
+  } else lessons.close();
 }
 for (const s of library) {
   const b = document.createElement('button'), meta = document.createElement('span');
-  b.className = 'song'; b.append(s.title); meta.textContent = s.shortCredit + ' · ' + s.bars.length + ' bars'; b.append(meta);
+  b.className = 'song'; b.append(s.title); meta.textContent = s.shortCredit + ' · ' + (s.exercise ? 'video lesson' : (s.bars.length - (s.pickup ? 1 : 0)) + ' bars'); b.append(meta);
   b.onclick = () => { location.hash = s.id; };
   $('songs').append(b); buttons.set(s.id,b); $('song-select').add(new Option(s.title,s.id));
 }
@@ -177,7 +206,7 @@ $('score').onkeydown = e => {
   if (target) { target.focus(); pick(indices[e.key]); }
 };
 window.addEventListener('hashchange', route);
-function releaseAudio() { stop(); tuner.stop(); }
+function releaseAudio() { stop(); tuner.stop(); if (mode === 'lesson') lessons.video(song); }
 window.addEventListener('pagehide', releaseAudio);
 document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAudio(); });
 let lastWidth;
