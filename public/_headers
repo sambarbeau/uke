@@ -1,0 +1,5 @@
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  Permissions-Policy: microphone=(self), camera=()
+/vendor/*
+  Cache-Control: public, max-age=86400

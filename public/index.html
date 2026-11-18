@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A ukulele songbook with playable sheet music, lyrics, tablature and a microphone tuner.">
+  <title>ukulele · Sam Barbeau</title>
+  <link rel="icon" href="./img/favicon-32.png">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./vendor/vexflow-bravura-4.2.5.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <a href="https://sambarbeau.com/" aria-label="Sam Barbeau home"><img src="./img/page_logo.png" width="56" height="56" alt=""></a>
+      <nav aria-label="Site"><a href="https://sambarbeau.com/">about</a><a aria-current="location" href="https://sambarbeau.com/projects.html">projects</a><a href="https://sambarbeau.com/travel.html">travel</a></nav>
+    </header>
+    <main>
+      <div class="heading">
+        <h1>ukulele</h1>
+        <div class="views" aria-label="Ukulele tools"><button id="practice-view" aria-pressed="true">Songbook</button><button id="tuner-view" aria-pressed="false">Tuner</button></div>
+      </div>
+      <noscript>Turn on JavaScript to read the score, play a song, or use the tuner.</noscript>
+      <section id="practice" class="practice" aria-label="Songbook">
+        <aside>
+          <div class="library"><h2>Songs</h2><div id="songs"></div></div>
+          <label class="mobile-library">Song <select id="song-select"></select></label>
+          <div class="finger-panel">
+            <h2>Fingering</h2>
+            <p class="finger-note" id="finger-note"></p>
+            <div id="fingerboard" aria-hidden="true"></div>
+            <p class="muted" id="finger-caption"></p>
+          </div>
+        </aside>
+        <div class="music">
+          <div class="paper">
+            <div class="song-heading"><h2 id="title"></h2><p id="credit"></p></div>
+            <div class="transport" aria-label="Playback">
+              <div class="play-buttons"><button id="play" class="primary"><span class="play-icon" aria-hidden="true"></span><span id="play-text">Play</span></button>
+                <button id="restart" title="Back to start" aria-label="Back to start"><span aria-hidden="true">↶</span></button>
+              </div>
+              <label>Tempo <select id="tempo" aria-label="Tempo"></select></label>
+              <label>Practice <select id="section" aria-label="Practice section"></select></label>
+              <label class="repeat"><input type="checkbox" id="repeat"> Repeat</label>
+            </div>
+            <div class="score-meta"><span id="score-info"></span><span id="position"></span></div>
+            <div id="score" role="group" aria-label="Interactive score"></div>
+            <p class="mobile-finger" id="mobile-finger"></p>
+          </div>
+          <p class="sheet-hint">Tap a note to hear it. The four lines below the staff are your strings, A, E, C, G from top to bottom. Each number is a fret. Play 0 as an open string.</p>
+        </div>
+      </section>
+      <section id="tuner" aria-labelledby="tuner-heading" hidden>
+        <div class="tune-card">
+          <h2 id="tuner-heading">Tune your ukulele</h2>
+          <p class="tune-intro">Pluck one open string at a time. The tuner listens on this device.</p>
+          <div class="tune-display">
+            <div id="detected">—</div>
+            <div id="reading" role="status">Microphone off</div>
+            <div class="meter" aria-hidden="true"><div class="target"></div><div id="needle" hidden></div></div>
+            <div class="meter-labels"><span>Flat</span><span>In tune</span><span>Sharp</span></div>
+          </div>
+          <button id="mic" class="primary">Start microphone</button>
+          <p class="feedback" id="mic-message" role="status"></p>
+          <div class="references"><h3>Reference tones</h3><p>Tap a string to hear standard high-G tuning.</p><div id="reference-buttons"></div></div>
+        </div>
+      </section>
+      <p class="feedback" id="message" role="status"></p>
+    </main>
+  </div>
+</body>
+</html>
