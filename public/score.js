@@ -7,24 +7,36 @@ function svgElement(name, attrs, text) {
   return el;
 }
 
-export function drawFingerboard(container, note) {
-  const svg = svgElement('svg', { viewBox: '0 0 192 89' });
-  const first = Math.max(1, note.fret - 3);
-  const nut = 31, spacing = 37;
-  for (let f = 0; f <= 4; f++) {
-    const x = nut + f * spacing;
-    svg.append(svgElement('line', { x1:x, x2:x, y1:11, y2:59, stroke:'#817e79', 'stroke-width':f === 0 && first === 1 ? 3 : 1 }));
-    if (f < 4) svg.append(svgElement('text', { x:x + spacing / 2, y:81, 'text-anchor':'middle', fill:'#57534e', 'font-size':13 }, first + f));
-  }
-  strings.forEach((s, i) => {
-    const y = 11 + i * 16;
-    const selected = i + 1 === note.string;
-    svg.append(svgElement('text', { x:2, y:y+4, 'font-size':13, fill:selected ? '#0369a1' : '#57534e' }, s.name));
-    svg.append(svgElement('line', { x1:nut, x2:nut + spacing * 4, y1:y, y2:y, stroke:selected ? '#0369a1' : '#a6a29e', 'stroke-width':selected ? 2 : 1 }));
-    if (selected) svg.append(svgElement('circle', { cx:note.fret ? nut + (note.fret - first + .5) * spacing : nut - 9, cy:y, r:5.3,
-      fill:note.fret ? '#0369a1' : '#e7e5e4', stroke:'#0369a1', 'stroke-width':1.6 }));
+export function drawFingerboard(container, song) {
+  const frets = Math.max(4, ...song.events.map(note => note.fret));
+  const svg = svgElement('svg', {viewBox:'0 0 160 ' + (47 + 23 * frets)});
+  const rail = [36,65,94,123], top = 37;
+  [...strings].reverse().forEach((s,i) => {
+    svg.append(svgElement('text',{x:rail[i],y:13,'text-anchor':'middle',fill:'#57534e','font-size':13},s.name));
+    svg.append(svgElement('line',{x1:rail[i],x2:rail[i],y1:top,y2:top+23*frets,stroke:'#928e88'}));
   });
+  for (let fret = 0; fret <= frets; fret++) {
+    const y = top + 23 * fret;
+    svg.append(svgElement('line',{x1:rail[0],x2:rail[3],y1:y,y2:y,stroke:'#817e79','stroke-width':fret ? 1 : 3}));
+    if (fret) svg.append(svgElement('text',{x:18,y:y-7,'text-anchor':'middle',fill:'#57534e','font-size':12},fret));
+  }
+  const notes = new Map();
+  for (const note of song.events) {
+    const position = note.string + '-' + note.fret;
+    if (notes.has(position)) continue;
+    const x = rail[4-note.string], y = note.fret ? top + 23 * (note.fret-.5) : top - 11;
+    const mark = svgElement('g',{class:'fret-position'});
+    mark.append(svgElement('circle',{cx:x,cy:y,r:8.6}));
+    mark.append(svgElement('text',{x,y:y+3.9,'text-anchor':'middle','font-size':11.5},note.pitch.slice(0,-1)));
+    notes.set(position,mark); svg.append(mark);
+  }
   container.replaceChildren(svg);
+  let current;
+  return note => {
+    current?.classList.remove('current');
+    current = notes.get(note.string + '-' + note.fret);
+    current?.classList.add('current');
+  };
 }
 
 export function drawScore(container, song, firstBar, lastBar) {
@@ -48,7 +60,7 @@ export function drawScore(container, song, firstBar, lastBar) {
     line.className = 'system';
     container.append(line);
     const renderer = new VF.Renderer(line, VF.Renderer.Backends.SVG);
-    const lyrics = Boolean(song.chords) || measures.some(({ bar }) => bar.some(n => n.lyric));
+    const lyrics = measures.some(({ bar }) => bar.some(n => n.lyric));
     const offset = lyrics ? 17 : 0;
     const height = 147 + offset;
     renderer.resize(width, height);
@@ -106,7 +118,6 @@ export function drawScore(container, song, firstBar, lastBar) {
       bar.forEach((n, j) => {
         const center = centers[j];
         engravings.set(n.index,notes[j]);
-        if (song.chords && j === 0) svg.append(svgElement('text', { x:center, y:23, 'text-anchor':'middle', class:'lyric' },song.chords[n.bar]));
         if (n.lyric) svg.append(svgElement('text', { x:center, y:23, 'text-anchor':'middle', class:'lyric' }, n.lyric));
         const left = j ? (centers[j-1] + center)/2 : center - Math.min(18, center - x);
         const right = centers[j+1] ? (center + centers[j+1])/2 : x + barWidth - 2;

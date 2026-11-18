@@ -1,3 +1,5 @@
+import { strummedSongs } from './arrangements.js';
+
 // A token is pitch, optional duration in quarter-note beats, and optional string
 // override (e.g. G4@2). A lyric row has one syllable per sounded note.
 export const songs = [
@@ -6,8 +8,7 @@ export const songs = [
     credit: 'Quirino Mendoza y Cortés · verse and chorus, 1927 songbook version',
     key: 'C', meter: [3, 4], bpm: 108, pickup: 1,
     sections: [{label:'Verse', first:0, last:16}, {label:'Chorus', first:17, last:32}],
-    lesson: { video: 'cDc6dDq0gdM', teacher: 'Rock Class 101',
-      sheet: 'https://rockclass101.com/cielito-lindo/', sheetLabel: 'Tutorial and accompanying materials' },
+    reference: { label: 'Rock Class 101 fingerstyle lesson', url: 'https://www.youtube.com/watch?v=cDc6dDq0gdM' },
     bars: [
       ['G4', 'De'], ['C5 C5 A4', 'la Sie- _'], ['~A4 B4 G4', '_ rra Mo-'],
       ['C5 C5 A4', 're- na, cie-'], ['~A4 B4 G4', '_ li- to'],
@@ -25,31 +26,7 @@ export const songs = [
       ['E5 C5:2', 'zo- nes.'], ['~C5:2', '_'],
     ],
   },
-  {
-    id: 'lava', title: 'Lava', credit: 'James Ford Murphy · Pixar’s Lava', shortCredit: 'Pixar',
-    key: 'C', meter: [4, 4], bpm: 76, exercise: 'Pick the strings of C, F and G7 one at a time. Let each chord ring before changing shape.',
-    lesson: { video: 'c9YzH75bLoQ', teacher: 'Musicroom UK',
-      sheet: 'https://www.sheetmusicplus.com/en/product/lava-from-lava-20289562.html' },
-    chords: ['C','F','G7','C'],
-    bars: [['C4 E4 G4 C5'], ['C4 F4 A4 A4@4'], ['D4 F4 G4 B4'], ['C5 G4 E4 C4']],
-  },
-  {
-    id: 'cant-help-falling-in-love', title: 'Can’t Help Falling in Love', credit: 'Elvis Presley · from Blue Hawaii', shortCredit: 'Elvis Presley',
-    key: 'C', meter: [6, 8], bpm: 72, exercise: 'Count two groups of three as you pick through these open chords. Lean gently on the first note in each group.',
-    lesson: { video: 'DMdF2Hfl4WE', teacher: 'U CAN UKE',
-      sheet: 'https://www.sheetmusicplus.com/en/product/can-t-help-falling-in-love-19922662.html' },
-    chords: ['C','Am','F','G7'],
-    bars: [['C4:0.5 E4:0.5 C5:0.5 G4:0.5 E4:0.5 C4:0.5'], ['C4:0.5 E4:0.5 A4:0.5 A4@4:0.5 E4:0.5 C4:0.5'],
-      ['C4:0.5 F4:0.5 A4:0.5 A4@4:0.5 F4:0.5 C4:0.5'], ['D4:0.5 F4:0.5 B4:0.5 G4:0.5 F4:0.5 D4:0.5']],
-  },
-  {
-    id: 'yesterday', title: 'Yesterday', credit: 'The Beatles · Lennon–McCartney', shortCredit: 'The Beatles',
-    key: 'F', meter: [4, 4], bpm: 68, exercise: 'Hold each shape while picking across the strings. Listen for the C-sharp in A7 resolving up to D in D minor.',
-    lesson: { video: 'L0z6_WuSGYg', teacher: 'AllForUke',
-      sheet: 'https://www.sheetmusicplus.com/en/product/yesterday-20059350.html' },
-    chords: ['F','A7','Dm','F'],
-    bars: [['C4 F4 A4 A4@4'], ['G4 A4 E4 C#4'], ['D4 F4 A4 A4@4'], ['A4 F4 C4 F4']],
-  },
+  ...strummedSongs,
   {
     id: 'twinkle', title: 'Twinkle, Twinkle, Little Star', credit: 'Traditional French melody · words by Jane Taylor',
     shortCredit: 'Traditional', key: 'C', meter: [4, 4], bpm: 88,

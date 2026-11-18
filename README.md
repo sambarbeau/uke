@@ -6,7 +6,7 @@ Run the sibling site's `node scripts/preview.mjs` for an integrated preview, or 
 
 ## Adding a song
 
-Add an entry to `public/songs.js` with a stable link ID, title, credit, major key, time signature, quarter-note BPM and measures. The current format supports single-note melodies. Each measure contains a space-separated note row and an optional syllable row. The same notes drive the score, tab, fingering diagram, playback and highlight.
+Add an entry to `public/songs.js` with a stable link ID, title, credit, major key, time signature, quarter-note BPM and measures. For a picked melody, enter the notes and any sung syllables. Each measure contains a space-separated note row and an optional syllable row. The same notes drive the score, tab, fingering diagram, playback and highlight.
 
 ```js
 ['C4 D4 E4:2', 'Sing to- day.']
@@ -29,4 +29,12 @@ Hosting uses static Pages assets with no build command, database or paid music A
 
 “Cielito Lindo” follows the melody and Spanish text on pp. 298–299 of Carl Sandburg’s 1927 *The American Songbag*. The one-beat pickup and two-beat ending complete 32 bars of 3/4. The verse and chorus can be practiced separately. [Scanned edition](https://upload.wikimedia.org/wikipedia/commons/c/cb/Carl_Sandburg_-_The_American_Songbag.pdf#page=326) · [Sam’s Rock Class 101 tutorial](https://www.youtube.com/watch?v=cDc6dDq0gdM)
 
-“Lava,” “Can’t Help Falling in Love,” and “Yesterday” open with their respective video lessons. Each includes an original picking exercise with synchronized notation and a link to the published score. The full commercial scores and lyrics are available through their publishers. The YouTube embed loads on request. Selecting another mode, another song or the tuner stops the lesson. My sheet opens a PDF supplied by the player and stores it in this browser’s IndexedDB under the song ID. PDF pages are for reading and do not drive audio playback.
+Each strummed song opens on its published lyric-and-chord sheet. The printed words come from the source's own PDF. The browser plays a separately authored, steady-tempo accompaniment. The same timed chord events drive audio, diagrams, rhythm highlights, and section/line cues. Slow down or repeat any section from the player. The tradeoff is that the original printed words stay in place as the chord cue advances. Desktop uses the browser PDF viewer. Touch browsers use an embedded document viewer with zoom and page navigation. The full-sheet link goes directly to the original PDF.
+
+- **Lava** uses the [Uke Like the Pros printable arrangement](https://www.ukelikethepros.com/ukulele-songs-lava), including its six verses, contrasting last chorus and tagged ending. The pattern shown on its first page has a quarter-note downstroke followed by three down/up pairs. The verse changes use the two-measure phrasing described in [Ukulele Go’s lesson](https://ukulelego.com/lessons/lava-ukulele-lesson/).
+- **Can’t Help Falling in Love** follows the introduction, verses, bridges and tag of the [Gloucester Strings club sheet](https://glosukeclub.org.uk/wp-content/uploads/simple-file-list/Cant-Help-Falling-in-Love-With-You-GS.pdf). The light down/up accompaniment is a practice interpretation of its six-count feel. The tempo selector counts dotted-quarter pulses.
+- **Yesterday** follows [Hull Ukulele Group’s version in F](https://hullukulelegroup.com/wp-content/uploads/2025/01/yesterday-v1.pdf), including its four even downstrokes, seven-bar verses, eight-bar bridges and hummed ending.
+
+Add future strummed arrangements in `public/arrangements.js`. Set their chord sheet, pulse, down/up pattern, sections and measures. Vertical bars divide measures. Multiple chords in a measure share its pulses equally unless an explicit duration is supplied, as in `Dm:1 C:1 Bb:2`. A final `!` gives the chord one attack and lets it ring. A `*` uses only main pulses. Each optional `lines` list identifies the zero-based measure starts of the printed lyric lines in that section. The library derives every chord diagram from the actual progression. Store new G–C–E–A fret and finger positions in `public/chords.js`.
+
+Personal PDFs saved in earlier versions remain available under **Your own sheet**. They stay in the browser’s IndexedDB and are never sent to the document viewer.

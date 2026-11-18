@@ -24,46 +24,56 @@
       <noscript>Turn on JavaScript to read the score, play a song, or use the tuner.</noscript>
       <section id="practice" class="practice" aria-label="Songbook">
         <aside>
-          <div class="library"><h2>Songs</h2><div id="songs"></div></div>
-          <label class="mobile-library">Song <select id="song-select"></select></label>
+          <label class="song-picker">Song <select id="song-select"></select></label>
+          <div id="side-reference"></div>
           <div class="finger-panel" id="finger-panel">
-            <h2>Fingering</h2>
+            <h2>Melody fingering</h2>
             <p class="finger-note" id="finger-note"></p>
             <div id="fingerboard" aria-hidden="true"></div>
             <p class="muted" id="finger-caption"></p>
+            <p class="reference-guide">Blue marks the current note. The other dots show the notes used in this song.</p>
           </div>
         </aside>
         <div class="music">
           <div class="paper">
             <div class="song-heading"><h2 id="title"></h2><p id="credit"></p></div>
-            <div class="modes" id="modes" hidden aria-label="Practice material">
-              <button id="mode-score" aria-pressed="true">Score</button><button id="mode-lesson" aria-pressed="false">Video lesson</button><button id="mode-sheet" aria-pressed="false">My sheet</button>
+            <p id="arrangement-reference" class="source-credit" hidden></p>
+            <div id="strum-setup" hidden>
+              <div class="pattern-heading"><h3>Strumming pattern</h3><span id="time-signature"></span></div>
+              <div id="pattern"></div>
+              <p class="pattern-note" id="pattern-note"></p>
+              <div id="inline-reference"><div id="chord-reference">
+                <h3 class="chord-heading">Chord shapes</h3>
+                <div id="chord-shapes" aria-label="Chord fingerings, strings G C E A"></div>
+                <p class="reference-guide">1 index · 2 middle · 3 ring · 4 little<br>Tap a shape to hear it.</p>
+              </div></div>
             </div>
-            <div id="lesson-view" hidden>
-              <p id="lesson-teacher"></p>
-              <div class="lesson-stage"><button id="load-video"><img id="lesson-image" alt="" referrerpolicy="no-referrer"><span>Play video lesson</span></button><div id="video-holder"></div></div>
-              <div class="lesson-links"><a id="watch-video" target="_blank" rel="noopener">Watch on YouTube</a><a id="video-sheet" target="_blank" rel="noopener">Published score (purchase)</a></div>
-            </div>
-            <div id="sheet-view" hidden>
-              <p>Choose your PDF score for this song. It stays in this browser.</p>
-              <label class="file-button"><span id="sheet-label">Choose PDF</span><input type="file" accept="application/pdf,.pdf" id="pdf-file"></label>
-              <p role="status" class="feedback" id="sheet-status"></p><div id="attached-sheet"></div>
-            </div>
-            <div id="score-view">
-            <p id="exercise" hidden></p>
             <div class="transport" aria-label="Playback">
               <div class="play-buttons"><button id="play" class="primary"><span class="play-icon" aria-hidden="true"></span><span id="play-text">Play</span></button>
                 <button id="restart" title="Back to start" aria-label="Back to start"><span class="rewind-icon" aria-hidden="true"></span></button>
               </div>
               <label>Tempo <select id="tempo" aria-label="Tempo"></select></label>
-              <label>Practice <select id="section" aria-label="Practice section"></select></label>
+              <label class="section-picker">Section <select id="section" aria-label="Practice section"></select></label>
               <label class="repeat"><input type="checkbox" id="repeat"> Repeat</label>
+              <div id="chord-cue" hidden><span class="cue-chords"><strong id="current-chord"></strong><span id="next-chord"></span></span><small id="phrase-cue"></small></div>
               <p class="mobile-finger" id="mobile-finger"></p>
             </div>
-            <details class="tab-guide"><summary>How to read this score</summary><p>Tap a note to hear it and see its fingering. Read the four lines beneath the staff as strings A, E, C, G from top to bottom. The number is the fret to press. A 0 means to play the open string.</p></details>
+            <div id="melody-sheet">
+              <details class="tab-guide"><summary>How to read this score</summary><p>Tap a note to hear it and see its fingering. The four lines beneath the staff are the A, E, C and G strings from top to bottom. Numbers show which fret to press. A 0 means an open string.</p></details>
+            </div>
             <div class="score-meta"><span id="score-info"></span><span id="position"></span></div>
             <div id="score" role="group" aria-label="Interactive score"></div>
-            </div>
+            <section id="lyric-sheet" hidden>
+              <div class="source-heading"><h3>Lyrics &amp; chords</h3><a id="open-source" target="_blank" rel="noopener">Open full sheet ↗</a></div>
+              <div id="published-page"></div>
+              <p class="source-credit" id="source-credit"></p>
+              <details id="chord-map"><summary>Chord changes by section</summary><div id="changes"></div></details>
+            </section>
+            <details class="personal-sheet">
+              <summary>Your own sheet</summary>
+              <label class="file-button"><span id="sheet-label">Choose PDF</span><input type="file" accept="application/pdf,.pdf" id="pdf-file"></label>
+              <span class="feedback" id="sheet-status" role="status"></span><div id="attached-sheet"></div>
+            </details>
           </div>
         </div>
       </section>

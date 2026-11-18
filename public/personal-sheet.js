@@ -14,35 +14,15 @@ function storeAction(method, ...args) {
   });
 }
 
-export function makeLessons() {
+export function makePersonalSheet() {
   const $ = id => document.getElementById(id);
   let song, activeUrl, revision = 0;
   const memory = new Map();
   function close() {
     revision++;
-    $('video-holder').replaceChildren(); $('attached-sheet').replaceChildren();
+    $('attached-sheet').replaceChildren();
     if (activeUrl) URL.revokeObjectURL(activeUrl);
     activeUrl = null; $('pdf-file').value = ''; $('sheet-status').textContent = '';
-  }
-  function showVideo() {
-    $('video-holder').replaceChildren();
-    const frame = document.createElement('iframe');
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + song.lesson.video + '?autoplay=1&playsinline=1';
-    frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture'; frame.allowFullscreen = true;
-    frame.title = song.title + ' ukulele lesson by ' + song.lesson.teacher;
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    $('video-holder').append(frame);
-    $('load-video').hidden = true;
-  }
-  $('load-video').onclick = showVideo;
-  function video(current) {
-    close(); song = current;
-    $('lesson-teacher').textContent = 'Ukulele lesson by ' + song.lesson.teacher;
-    $('watch-video').href = 'https://www.youtube.com/watch?v=' + song.lesson.video;
-    $('video-sheet').href = song.lesson.sheet;
-    $('video-sheet').textContent = song.lesson.sheetLabel ?? 'Published score (purchase)';
-    $('lesson-image').src = 'https://i.ytimg.com/vi/' + song.lesson.video + '/hqdefault.jpg';
-    $('load-video').hidden = false;
   }
   function displayFile(file) {
     if (activeUrl) URL.revokeObjectURL(activeUrl);
@@ -66,6 +46,7 @@ export function makeLessons() {
   }
   async function sheet(current) {
     close(); song = current;
+    document.querySelector('.personal-sheet').open = false;
     $('sheet-label').textContent = 'Choose PDF';
     const stamp = revision;
     try {
@@ -73,6 +54,7 @@ export function makeLessons() {
       if (stamp === revision && file) {
         const pdf = file instanceof Blob ? file : new File([file.bytes],file.name,{type:'application/pdf'});
         displayFile(pdf);
+        document.querySelector('.personal-sheet').open = true;
       }
     } catch { /* A fresh file still works when browser storage is unavailable. */ }
   }
@@ -91,5 +73,5 @@ export function makeLessons() {
       if (stamp === revision) $('sheet-status').textContent = 'Saved in this browser.';
     } catch { if (stamp === revision) $('sheet-status').textContent = 'Available for this visit. Browser storage is unavailable.'; }
   };
-  return { close, video, sheet };
+  return { close, sheet };
 }

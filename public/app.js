@@ -3,17 +3,34 @@ import { readSong, fingering, barNumber } from './music.js';
 import { drawScore, drawFingerboard } from './score.js';
 import { audioContext, pluck, silence } from './audio.js';
 import { makeTuner } from './tuner.js';
-import { makeLessons } from './lessons.js';
+import { makePersonalSheet } from './personal-sheet.js';
+import { readStrumSong, chordNotes } from './chords.js';
+import { makeStrumSheet } from './strum-sheet.js';
 
 const $ = id => document.getElementById(id);
-const library = songs.map(readSong), tuner = makeTuner(), lessons = makeLessons();
-let mode;
+const library = songs.map(s => s.pattern ? readStrumSong(s) : readSong(s));
+const tuner = makeTuner(), personal = makePersonalSheet();
+const strums = makeStrumSheet(hearChord, seekBar);
 let song, bpm, firstBar, lastBar, startBeat, endBeat, cursor, selected;
 let loop = false, playing = false, generation = 0, clock, origin, frame, tick, scheduleIndex, cycleStart;
-const buttons = new Map();
-let targets = [];
+
+let targets = [], markFret;
+const smallScreen = matchMedia('(max-width:720px)');
+function placeChordReference() {
+  $(smallScreen.matches ? 'inline-reference' : 'side-reference').append($('chord-reference'));
+}
+smallScreen.addEventListener('change',placeChordReference);
+placeChordReference();
 
 function setNote(event, follow = false) {
+  if (song.pattern) {
+    selected = event.index;
+    const next = song.events[event.nextChange];
+    const nextChord = next && next.beat < endBeat ? next.chord : loop ? song.bars[firstBar][0].chord : '';
+    strums.mark(event, nextChord);
+    $('position').textContent = 'Bar ' + (event.bar + 1) + ' of ' + song.bars.length;
+    return;
+  }
   const changed = selected !== event.index;
   targets[selected]?.classList.remove('selected');
   targets[selected]?.setAttribute('tabindex', '-1');
@@ -25,7 +42,7 @@ function setNote(event, follow = false) {
     $('finger-note').textContent = event.pitch;
     $('finger-caption').textContent = fingering(event);
     $('mobile-finger').textContent = event.pitch + ' · ' + fingering(event);
-    drawFingerboard($('fingerboard'), event);
+    markFret(event);
   }
   const barCount = song.bars.length - (song.pickup ? 1 : 0);
   $('position').textContent = song.pickup && event.bar === 0 ? 'Pickup · ' + barCount + ' bars' : barNumber(song,event.bar) + ' of ' + barCount;
@@ -35,7 +52,7 @@ function setNote(event, follow = false) {
   }
 }
 function render() {
-  if ($('practice').hidden || mode !== 'score') return;
+  if ($('practice').hidden || song.pattern) return;
   drawScore($('score'), song, firstBar, lastBar);
   targets = [];
   $('score').querySelectorAll('.note-target').forEach(t => { targets[Number(t.dataset.index)] = t; });
@@ -69,6 +86,24 @@ function updateView() {
   frame = requestAnimationFrame(updateView);
 }
 // Schedule against the audio clock. Only the small look-ahead window needs canceling on seek.
+function soundChord(name, stroke, when, length, volume) {
+  const spacing = Math.min(.016, length / 7);
+  chordNotes(name,stroke).forEach((midi,i) => pluck(midi, when + i * spacing, length - i * spacing, volume));
+}
+async function hearChord(name) {
+  stop(); const current = generation;
+  try {
+    const ctx = await audioContext();
+    if (current === generation) soundChord(name,'D',ctx.currentTime,1.2,.47);
+  } catch { if (current === generation) $('message').textContent = 'Chord audio is unavailable.'; }
+}
+function seekBar(index) {
+  const resume = playing;
+  if (index < firstBar || index > lastBar) { $('section').value = 'all'; range(); }
+  stop(false); const event = song.bars[index][0];
+  cursor = event.beat; setNote(event);
+  if (resume) play(); else hearChord(event.chord);
+}
 function schedule() {
   const horizon = clock.currentTime + .16, seconds = 60 / bpm;
   while (true) {
@@ -82,7 +117,10 @@ function schedule() {
     if (when >= horizon) return;
     const onset = Math.max(when, clock.currentTime);
     const length = cycleStart + (Math.min(event.soundEnd,endBeat) - startBeat) * seconds - onset;
-    if (length > .015) pluck(event.midi, onset, length);
+    if (length > .015) {
+      if (!song.pattern) pluck(event.midi, onset, length);
+      else if (event.stroke !== '-') soundChord(event.chord,event.stroke,onset,length,event.accent ? .49 : .34);
+    }
     scheduleIndex = event.afterTie;
   }
 }
@@ -122,24 +160,27 @@ function range() {
   cursor = startBeat; selected = undefined;
   setNote(song.bars[firstBar][0]); render();
 }
-function showMode(next) {
-  stop(); lessons.close(); mode = next;
-  for (const value of ['score','lesson','sheet']) {
-    $(value + '-view').hidden = value !== mode;
-    $('mode-' + value).setAttribute('aria-pressed',String(value === mode));
-  }
-  $('finger-panel').hidden = mode !== 'score';
-  if (mode === 'lesson') lessons.video(song);
-  if (mode === 'sheet') lessons.sheet(song);
-  if (mode === 'score') render();
-}
-for (const value of ['score','lesson','sheet']) $('mode-' + value).onclick = () => showMode(value);
 function loadSong(id) {
-  stop(false); song = library.find(s => s.id === id) ?? library[0];
+  stop(false); strums.close(); song = library.find(s => s.id === id) ?? library[0];
+  targets = [];
   $('title').textContent = song.title; $('credit').textContent = song.credit;
-  $('score-info').textContent = song.key + ' major · ' + song.meter.join('/') + ' · high-G ukulele';
+  const strummed = Boolean(song.pattern);
+  $('practice').classList.toggle('strummed',strummed);
+  for (const id of ['finger-panel','mobile-finger','melody-sheet','score']) $(id).hidden = strummed;
+  for (const id of ['strum-setup','lyric-sheet','chord-cue']) $(id).hidden = !strummed;
+  $('chord-reference').hidden = !strummed;
+  $('score').replaceChildren();
+  $('arrangement-reference').hidden = !song.reference;
+  if (song.reference) {
+    const a = document.createElement('a');
+    a.href = song.reference.url; a.textContent = song.reference.label; a.target = '_blank'; a.rel = 'noopener';
+    $('arrangement-reference').replaceChildren(a,' · alternate arrangement');
+  }
+  if (strummed) strums.load(song);
+  else markFret = drawFingerboard($('fingerboard'),song);
+  personal.sheet(song);
+  $('score-info').textContent = song.key + ' major · ' + (strummed ? 'G C E A' : song.meter.join('/') + ' · high-G ukulele');
   $('song-select').value = song.id;
-  buttons.forEach((b,k) => b.setAttribute('aria-pressed', String(k === song.id)));
   $('tempo').replaceChildren();
   for (const factor of [.5,.75,1,1.25,1.5]) {
     const speed = Math.round(song.bpm * factor);
@@ -152,17 +193,11 @@ function loadSong(id) {
   };
   for (const part of song.sections ?? []) addPassage(part.label,part.first,part.last);
   const pickup = song.pickup ? 1 : 0;
-  if (song.bars.length > 4) for (let i = pickup; i < song.bars.length; i += 4) {
+  if (!strummed && song.bars.length > 4) for (let i = pickup; i < song.bars.length; i += 4) {
     const last = Math.min(i+3,song.bars.length-1);
     addPassage('Bars ' + (i+1-pickup) + '–' + (last+1-pickup),i,last);
   }
-  $('modes').hidden = !song.lesson;
-  $('mode-score').textContent = song.exercise ? 'Picking exercise' : 'Score';
-  $('exercise').hidden = !song.exercise;
-  $('exercise').textContent = song.exercise ?? '';
-  mode = undefined;
   $('message').textContent = ''; range();
-  showMode(song.exercise ? 'lesson' : 'score');
 }
 function route() {
   const hash = location.hash.slice(1), tuning = hash === 'tuner';
@@ -173,26 +208,32 @@ function route() {
   $('message').textContent = '';
   if (!tuning) {
     const next = library.find(s => s.id === hash) ?? library[0];
-    if (song !== next) loadSong(next.id); else showMode(mode);
-  } else lessons.close();
+    if (song !== next) loadSong(next.id);
+    else if (!song.pattern) render();
+  }
 }
-for (const s of library) {
-  const b = document.createElement('button'), meta = document.createElement('span');
-  b.className = 'song'; b.append(s.title); meta.textContent = s.shortCredit + ' · ' + (s.exercise ? 'video lesson' : (s.bars.length - (s.pickup ? 1 : 0)) + ' bars'); b.append(meta);
-  b.onclick = () => { location.hash = s.id; };
-  $('songs').append(b); buttons.set(s.id,b); $('song-select').add(new Option(s.title,s.id));
-}
+for (const s of library) $('song-select').add(new Option(s.title,s.id));
 $('song-select').onchange = e => { location.hash = e.target.value; };
 $('practice-view').onclick = () => { if ($('practice').hidden) location.hash = (song ?? library[0]).id; };
 $('tuner-view').onclick = () => { location.hash = 'tuner'; };
-$('play').onclick = () => playing ? stop() : play();
+$('play').onclick = () => {
+  if (playing) { stop(); return; }
+  play();
+  const reading = song.pattern ? $('lyric-sheet') : targets[noteAt(cursor).index];
+  if (!reading) return;
+  const box = reading.getBoundingClientRect();
+  const controls = $('play').closest('.transport').offsetHeight;
+  if (box.top > innerHeight * .48 || box.bottom < controls) {
+    window.scrollBy({top:box.top-controls-8, behavior:'instant'});
+  }
+};
 $('restart').onclick = () => { stop(false); cursor = startBeat; setNote(song.bars[firstBar][0]); };
 $('tempo').onchange = () => {
   const resume = playing; stop(); bpm = Number($('tempo').value); if (resume) play();
 };
 $('repeat').onchange = () => {
   const resume = playing; stop(); loop = $('repeat').checked;
-  if (resume) play();
+  if (resume) play(); else if (song.pattern) setNote(song.events[selected]);
 };
 $('section').onchange = range;
 $('score').onclick = e => { const t = e.target.closest('.note-target'); if (t) pick(Number(t.dataset.index)); };
@@ -206,12 +247,12 @@ $('score').onkeydown = e => {
   if (target) { target.focus(); pick(indices[e.key]); }
 };
 window.addEventListener('hashchange', route);
-function releaseAudio() { stop(); tuner.stop(); if (mode === 'lesson') lessons.video(song); }
+function releaseAudio() { stop(); tuner.stop(); }
 window.addEventListener('pagehide', releaseAudio);
 document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAudio(); });
 let lastWidth;
 new ResizeObserver(() => {
   const width = $('score').clientWidth;
-  if (width && width !== lastWidth && song) { lastWidth = width; render(); }
+  if (width && width !== lastWidth && song && !song.pattern) { lastWidth = width; render(); }
 }).observe($('score'));
 route();

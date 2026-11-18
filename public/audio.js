@@ -14,7 +14,7 @@ export async function audioContext() {
   return context;
 }
 
-export function pluck(midi, when, duration) {
+export function pluck(midi, when, duration, volume = 1) {
   const osc = context.createOscillator(), gain = context.createGain(), filter = context.createBiquadFilter();
   const hz = frequency(midi), length = Math.min(2.5, duration * .98);
   osc.frequency.value = hz;
@@ -23,8 +23,8 @@ export function pluck(midi, when, duration) {
   filter.frequency.setValueAtTime(Math.min(hz * 9, 7200), when);
   filter.frequency.exponentialRampToValueAtTime(hz * 1.7, when + length);
   gain.gain.setValueAtTime(.0001, when);
-  gain.gain.exponentialRampToValueAtTime(.28, when + .006);
-  gain.gain.exponentialRampToValueAtTime(.07, when + length * .55);
+  gain.gain.exponentialRampToValueAtTime(.28 * volume, when + .006);
+  gain.gain.exponentialRampToValueAtTime(.07 * volume, when + length * .55);
   gain.gain.exponentialRampToValueAtTime(.0001, when + length);
   osc.connect(filter).connect(gain).connect(context.destination);
   osc.onended = () => { sounding.delete(osc); osc.disconnect(); gain.disconnect(); filter.disconnect(); };
