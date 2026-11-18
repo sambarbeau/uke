@@ -38,17 +38,17 @@
             <div class="song-heading"><h2 id="title"></h2><p id="credit"></p></div>
             <div class="transport" aria-label="Playback">
               <div class="play-buttons"><button id="play" class="primary"><span class="play-icon" aria-hidden="true"></span><span id="play-text">Play</span></button>
-                <button id="restart" title="Back to start" aria-label="Back to start"><span aria-hidden="true">↶</span></button>
+                <button id="restart" title="Back to start" aria-label="Back to start"><span class="rewind-icon" aria-hidden="true"></span></button>
               </div>
               <label>Tempo <select id="tempo" aria-label="Tempo"></select></label>
               <label>Practice <select id="section" aria-label="Practice section"></select></label>
               <label class="repeat"><input type="checkbox" id="repeat"> Repeat</label>
+              <p class="mobile-finger" id="mobile-finger"></p>
             </div>
+            <details class="tab-guide"><summary>How to read this score</summary><p>Tap a note to hear it and see its fingering. Read the four lines beneath the staff as strings A, E, C, G from top to bottom. The number is the fret to press. A 0 means to play the open string.</p></details>
             <div class="score-meta"><span id="score-info"></span><span id="position"></span></div>
             <div id="score" role="group" aria-label="Interactive score"></div>
-            <p class="mobile-finger" id="mobile-finger"></p>
           </div>
-          <p class="sheet-hint">Tap a note to hear it. The four lines below the staff are your strings, A, E, C, G from top to bottom. Each number is a fret. Play 0 as an open string.</p>
         </div>
       </section>
       <section id="tuner" aria-labelledby="tuner-heading" hidden>

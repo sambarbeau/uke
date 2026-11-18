@@ -36,7 +36,7 @@ aside h2, .references h3 { font-size:1.06rem; margin-bottom:.65rem; }
 .finger-panel { border-top:1px solid var(--line); margin-top:1.8rem; padding-top:.9rem; }
 .finger-note { font-size:1.5rem; margin:.35rem 0; }
 #fingerboard svg { display:block; width:100%; max-width:210px; height:auto; }
-.muted,.references p,.tune-intro,.sheet-hint { color:var(--muted); }
+.muted,.references p,.tune-intro { color:var(--muted); }
 #finger-caption { margin-top:.35rem; font-size:.88rem; }
 .paper,.tune-card { background:var(--paper); border:1px solid var(--line); border-radius:5px; }
 .paper { padding:1.35rem 1.4rem .8rem; }
@@ -64,7 +64,9 @@ select { appearance:none; padding-right:1.75rem; background:linear-gradient(45de
 #score svg .note-target:hover { fill:rgb(3 105 161 / .06); }
 #score svg .note-target.selected { fill:rgb(3 105 161 / .13); stroke:rgb(3 105 161 / .36); stroke-width:1px; }
 #score svg .note-target:focus-visible { outline:none; stroke:var(--accent); stroke-width:2px; }
-.sheet-hint { font-size:.86rem; margin:.7rem .15rem 0; max-width:75ch; }
+.tab-guide { color:var(--muted); font-size:.86rem; margin:.3rem 0 .65rem; }
+.tab-guide summary { width:fit-content; cursor:pointer; color:var(--accent); }
+.tab-guide p { margin:.35rem 0; max-width:65ch; }
 .mobile-library,.mobile-finger { display:none; }
 .tune-card { max-width:640px; margin:0 auto; padding:1.6rem 2rem; }
 .tune-intro { margin:.3rem 0 1.15rem; }
@@ -92,7 +94,7 @@ select { appearance:none; padding-right:1.75rem; background:linear-gradient(45de
   .mobile-library { display:flex; align-items:center; gap:.6rem; font-size:.9rem; margin:0 0 .7rem; }
   .mobile-library select { flex:1; min-width:0; }
   .paper,.tune-card { padding:1rem .8rem .65rem; }
-  .mobile-finger { display:block; font-size:.88rem; color:var(--muted); border-top:1px solid var(--line); padding-top:.5rem; }
+  .mobile-finger { display:block; font-size:.86rem; color:var(--muted); flex-basis:100%; grid-column:1 / -1; }
   .tune-card { padding-bottom:1rem; }
   .score-meta { font-size:.76rem; }
 }
@@ -102,3 +104,7 @@ select { appearance:none; padding-right:1.75rem; background:linear-gradient(45de
 }
 
 .transport { position:sticky; top:0; z-index:2; background:var(--paper); padding-top:.3rem; }
+
+#restart { display:grid; place-items:center; min-width:40px; }
+.rewind-icon { position:relative; display:block; border-right:8px solid currentColor; border-block:5px solid transparent; }
+.rewind-icon::before { position:absolute; content:""; width:2px; height:10px; left:-3px; top:-5px; background:currentColor; }
