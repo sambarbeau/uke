@@ -3,14 +3,14 @@ import { readSong, fingering, barNumber } from './music.js';
 import { drawScore, drawFingerboard } from './score.js';
 import { audioContext, pluck, silence } from './audio.js';
 import { makeTuner } from './tuner.js';
-import { makePersonalSheet } from './personal-sheet.js';
+import { savedSheetLink } from './personal-sheet.js';
 import { readStrumSong, chordNotes } from './chords.js';
 import { makeStrumSheet } from './strum-sheet.js';
 
 const $ = id => document.getElementById(id);
 const library = songs.map(s => s.pattern ? readStrumSong(s) : readSong(s));
-const tuner = makeTuner(), personal = makePersonalSheet();
-const strums = makeStrumSheet(hearChord, seekBar);
+const tuner = makeTuner(), showSavedSheet = savedSheetLink($('saved-sheet'));
+const strums = makeStrumSheet(hearChord, seekChord);
 let song, bpm, firstBar, lastBar, startBeat, endBeat, cursor, selected;
 let loop = false, playing = false, generation = 0, clock, origin, frame, tick, scheduleIndex, cycleStart;
 
@@ -25,10 +25,8 @@ placeChordReference();
 function setNote(event, follow = false) {
   if (song.pattern) {
     selected = event.index;
-    const next = song.events[event.nextChange];
-    const nextChord = next && next.beat < endBeat ? next.chord : loop ? song.bars[firstBar][0].chord : '';
-    strums.mark(event, nextChord);
-    $('position').textContent = 'Bar ' + (event.bar + 1) + ' of ' + song.bars.length;
+    strums.mark(event, follow);
+    $('position').textContent = event.part + ' · Bar ' + (event.bar + 1);
     return;
   }
   const changed = selected !== event.index;
@@ -97,11 +95,9 @@ async function hearChord(name) {
     if (current === generation) soundChord(name,'D',ctx.currentTime,1.2,.47);
   } catch { if (current === generation) $('message').textContent = 'Chord audio is unavailable.'; }
 }
-function seekBar(index) {
-  const resume = playing;
-  if (index < firstBar || index > lastBar) { $('section').value = 'all'; range(); }
-  stop(false); const event = song.bars[index][0];
-  cursor = event.beat; setNote(event);
+function seekChord(index) {
+  const resume = playing, event = song.events[index];
+  stop(false); cursor = event.beat; setNote(event);
   if (resume) play(); else hearChord(event.chord);
 }
 function schedule() {
@@ -119,7 +115,7 @@ function schedule() {
     const length = cycleStart + (Math.min(event.soundEnd,endBeat) - startBeat) * seconds - onset;
     if (length > .015) {
       if (!song.pattern) pluck(event.midi, onset, length);
-      else if (event.stroke !== '-') soundChord(event.chord,event.stroke,onset,length,event.accent ? .49 : .34);
+      else if (event.stroke !== '-') soundChord(event.chord,event.stroke,onset,length,event.accent ? .65 : .29);
     }
     scheduleIndex = event.afterTie;
   }
@@ -158,28 +154,32 @@ function range() {
   const last = song.bars[lastBar].at(-1);
   endBeat = last.beat + last.beats;
   cursor = startBeat; selected = undefined;
+  if (song.pattern) strums.range(firstBar,lastBar);
   setNote(song.bars[firstBar][0]); render();
 }
 function loadSong(id) {
   stop(false); strums.close(); song = library.find(s => s.id === id) ?? library[0];
   targets = [];
-  $('title').textContent = song.title; $('credit').textContent = song.credit;
+  $('credit').textContent = song.credit;
+  document.title = song.title + ' · ukulele · Sam Barbeau';
   const strummed = Boolean(song.pattern);
   $('practice').classList.toggle('strummed',strummed);
-  for (const id of ['finger-panel','mobile-finger','melody-sheet','score']) $(id).hidden = strummed;
-  for (const id of ['strum-setup','lyric-sheet','chord-cue']) $(id).hidden = !strummed;
+  for (const id of ['finger-panel','mobile-finger','score']) $(id).hidden = strummed;
+  for (const id of ['strum-setup','lyric-sheet']) $(id).hidden = !strummed;
   $('chord-reference').hidden = !strummed;
   $('score').replaceChildren();
-  $('arrangement-reference').hidden = !song.reference;
-  if (song.reference) {
-    const a = document.createElement('a');
-    a.href = song.reference.url; a.textContent = song.reference.label; a.target = '_blank'; a.rel = 'noopener';
-    $('arrangement-reference').replaceChildren(a,' · alternate arrangement');
+  function sourceLink(label,url) {
+    const link = document.createElement('a');
+    link.textContent = label; link.href = url; link.target = '_blank'; link.rel = 'noopener'; return link;
   }
-  if (strummed) strums.load(song);
-  else markFret = drawFingerboard($('fingerboard'),song);
-  personal.sheet(song);
-  $('score-info').textContent = song.key + ' major · ' + (strummed ? 'G C E A' : song.meter.join('/') + ' · high-G ukulele');
+  if (strummed) {
+    strums.load(song);
+    $('credits').replaceChildren(sourceLink(song.sheet.publisher,song.sheet.site),' · ',sourceLink('Lyrics via LRCLIB','https://lrclib.net/'));
+  } else {
+    markFret = drawFingerboard($('fingerboard'),song);
+    $('credits').replaceChildren(sourceLink('Rock Class 101 lesson',song.reference.url));
+  }
+  showSavedSheet(song.id);
   $('song-select').value = song.id;
   $('tempo').replaceChildren();
   for (const factor of [.5,.75,1,1.25,1.5]) {
@@ -206,10 +206,11 @@ function route() {
   $('practice-view').setAttribute('aria-pressed',String(!tuning));
   $('tuner-view').setAttribute('aria-pressed',String(tuning));
   $('message').textContent = '';
+  if (tuning) document.title = 'Tuner · ukulele · Sam Barbeau';
   if (!tuning) {
     const next = library.find(s => s.id === hash) ?? library[0];
     if (song !== next) loadSong(next.id);
-    else if (!song.pattern) render();
+    else { document.title = song.title + ' · ukulele · Sam Barbeau'; render(); }
   }
 }
 for (const s of library) $('song-select').add(new Option(s.title,s.id));
@@ -219,7 +220,7 @@ $('tuner-view').onclick = () => { location.hash = 'tuner'; };
 $('play').onclick = () => {
   if (playing) { stop(); return; }
   play();
-  const reading = song.pattern ? $('lyric-sheet') : targets[noteAt(cursor).index];
+  const reading = song.pattern ? $('chart').querySelector('[aria-current]') : targets[noteAt(cursor).index];
   if (!reading) return;
   const box = reading.getBoundingClientRect();
   const controls = $('play').closest('.transport').offsetHeight;

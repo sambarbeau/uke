@@ -33,7 +33,7 @@ export function readStrumSong(song) {
           if (articulation === '!') stroke = i === 0 ? 'D' : '-';
           if (articulation === '*') stroke = Number.isInteger(i * step) ? 'D' : '-';
           const event = {index:slot, beat:slot * step, beats:step, bar:bars.length, chord, phase, stroke,
-            accent:pattern.accents.includes(phase), change:i === 0, part:part.label, line, page:part.page ?? 1,
+            accent:pattern.accents.includes(phase), change:i === 0, part:part.label, line,
             afterTie:slot + 1};
           bar.push(event); events.push(event); slot++;
         }

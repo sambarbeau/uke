@@ -16,11 +16,9 @@ Bare notes last one quarter-note beat. Use `:0.5`, `:1.5`, `:2`, `:3` or `:4` fo
 
 ## Design and sources
 
-[VexFlow](https://www.vexflow.com/) engraves the staff and aligns it with four-string tab. The local 4.2.5 Bravura bundle comes from the official npm package. License texts are in `public/vendor/`. Each system reflows at measure boundaries. A fixed lyric baseline keeps the syllables above their corresponding notes.
+The picked score is a responsive four-line ukulele tab. Each fret number and Spanish syllable is drawn from the same event used for audio. Parenthesized frets sustain a tied note.
 
 [Web Audio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Advanced_techniques) schedules synthesized plucks against the audio clock. The tuner analyzes live waveform samples locally once the player enables the microphone. It releases the input on stop, tab hide, navigation or reference-tone playback. Microphone capture requires [a secure context and permission](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia). The [Lanikai care guide](https://lanikaiukuleles.com/wp-content/uploads/2023/03/Lanikai_CareGuide_2023.pdf) documents the high-G tuning.
-
-The starter arrangements were entered for this project. Historical references include the [Morgan Library’s French tune manuscript](https://www.themorgan.org/exhibitions/online/mozart/418), [Twinkle’s printed words](https://www.gutenberg.org/ebooks/61009), the [Frère Jacques round](https://www.gutenberg.org/cache/epub/42711/music/018-019frerejacques.pdf), and [Beethoven’s Ninth Symphony manuscript](https://www.loc.gov/resource/gdcwdl.wdl_15063/). Ode to Joy is presented as an instrumental melody.
 
 Hosting uses static Pages assets with no build command, database or paid music API. Requests through the personal site's Worker count toward its existing [Workers quota](https://developers.cloudflare.com/pages/functions/pricing/).
 
@@ -29,12 +27,14 @@ Hosting uses static Pages assets with no build command, database or paid music A
 
 “Cielito Lindo” follows the melody and Spanish text on pp. 298–299 of Carl Sandburg’s 1927 *The American Songbag*. The one-beat pickup and two-beat ending complete 32 bars of 3/4. The verse and chorus can be practiced separately. [Scanned edition](https://upload.wikimedia.org/wikipedia/commons/c/cb/Carl_Sandburg_-_The_American_Songbag.pdf#page=326) · [Sam’s Rock Class 101 tutorial](https://www.youtube.com/watch?v=cDc6dDq0gdM)
 
-Each strummed song opens on its published lyric-and-chord sheet. The printed words come from the source's own PDF. The browser plays a separately authored, steady-tempo accompaniment. The same timed chord events drive audio, diagrams, rhythm highlights, and section/line cues. Slow down or repeat any section from the player. The tradeoff is that the original printed words stay in place as the chord cue advances. Desktop uses the browser PDF viewer. Touch browsers use an embedded document viewer with zoom and page navigation. The full-sheet link goes directly to the original PDF.
+Strummed songs use native chord-and-lyric rows, with each chord positioned over its word or syllable. The accompaniment, active chord, diagram, and strum arrows share the same audio clock. The section selector and repeat control apply to the chart and player together.
 
-- **Lava** uses the [Uke Like the Pros printable arrangement](https://www.ukelikethepros.com/ukulele-songs-lava), including its six verses, contrasting last chorus and tagged ending. The pattern shown on its first page has a quarter-note downstroke followed by three down/up pairs. The verse changes use the two-measure phrasing described in [Ukulele Go’s lesson](https://ukulelego.com/lessons/lava-ukulele-lesson/).
+The browser retrieves words directly from the [LRCLIB API](https://lrclib.net/docs) by a verified recording ID. The per-song word ranges and chord offsets in `public/lyric-timing.js` match each recording to its printed arrangement. Previously loaded lyrics are stored on this device. If the service is unavailable on a first visit, the chord chart is playable while lyrics can be retried.
+
+- **Lava** uses the [Uke Like the Pros printable arrangement](https://www.ukelikethepros.com/ukulele-songs-lava), including its six verses, contrasting last chorus and tagged ending. The pattern shown on its first page has a quarter-note downstroke followed by three down/up pairs, with accented downstrokes on beats 2 and 4. The verse changes use the two-measure phrasing described in [Ukulele Go’s lesson](https://ukulelego.com/lessons/lava-ukulele-lesson/).
 - **Can’t Help Falling in Love** follows the introduction, verses, bridges and tag of the [Gloucester Strings club sheet](https://glosukeclub.org.uk/wp-content/uploads/simple-file-list/Cant-Help-Falling-in-Love-With-You-GS.pdf). The light down/up accompaniment is a practice interpretation of its six-count feel. The tempo selector counts dotted-quarter pulses.
 - **Yesterday** follows [Hull Ukulele Group’s version in F](https://hullukulelegroup.com/wp-content/uploads/2025/01/yesterday-v1.pdf), including its four even downstrokes, seven-bar verses, eight-bar bridges and hummed ending.
 
 Add future strummed arrangements in `public/arrangements.js`. Set their chord sheet, pulse, down/up pattern, sections and measures. Vertical bars divide measures. Multiple chords in a measure share its pulses equally unless an explicit duration is supplied, as in `Dm:1 C:1 Bb:2`. A final `!` gives the chord one attack and lets it ring. A `*` uses only main pulses. Each optional `lines` list identifies the zero-based measure starts of the printed lyric lines in that section. The library derives every chord diagram from the actual progression. Store new G–C–E–A fret and finger positions in `public/chords.js`.
 
-Personal PDFs saved in earlier versions remain available under **Your own sheet**. They stay in the browser’s IndexedDB and are never sent to the document viewer.
+Older personal PDFs remain accessible through a download link on their song. Songbook pages load no document viewers.

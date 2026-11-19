@@ -1,4 +1,5 @@
 import { shapes } from './chords.js';
+import { lyricTiming } from './lyric-timing.js';
 
 const $ = id => document.getElementById(id);
 const ink = '#082f49', blue = '#0369a1';
@@ -33,82 +34,162 @@ function diagram(chord) {
   return svg;
 }
 
+const cachedWords = new Map();
+async function loadWords(timing, signal) {
+  if (cachedWords.has(timing.recordId)) return cachedWords.get(timing.recordId);
+  const key = 'uke:lyrics:' + timing.recordId;
+  const split = value => value?.trim().split(/\s+/u);
+  try {
+    const saved = split(localStorage.getItem(key));
+    if (saved?.length === timing.wordCount) { cachedWords.set(timing.recordId,saved); return saved; }
+  } catch { /* Storage is optional. */ }
+  const response = await fetch('https://lrclib.net/api/get/' + timing.recordId,{signal,credentials:'omit'});
+  if (!response.ok) throw new Error('Lyrics unavailable');
+  const result = await response.json(), words = split(result.plainLyrics);
+  if (result.id !== timing.recordId || words?.length !== timing.wordCount) throw new Error('Lyrics edition changed');
+  cachedWords.set(timing.recordId,words);
+  try { localStorage.setItem(key,result.plainLyrics); } catch { /* This visit still works. */ }
+  return words;
+}
+
 export function makeStrumSheet(audition, seek) {
-  let song, frame, page, patternCells = [], chordButtons = new Map(), barButtons = [];
-  let prevEvent;
-  // Mobile browsers can advertise PDF support while leaving embedded pages blank.
-  const mobileReader = navigator.pdfViewerEnabled === false || matchMedia('(pointer:coarse)').matches;
+  let song, words, request, firstBar, lastBar, lastEvent, selectedCell;
+  let chordButtons = new Map(), patternCells = [], cellsByEvent = [];
+  const chart = $('chart');
+
   function close() {
-    song = undefined; frame = undefined; page = undefined; prevEvent = undefined;
-    $('published-page').replaceChildren();
+    request?.abort();
+    song = words = lastEvent = selectedCell = undefined;
+    chart.replaceChildren();
+    $('lyric-status').hidden = true;
   }
-  function showPage(n) {
-    if (n === page) return;
-    page = n;
-    const url = song.sheet.pdf + '#page=' + page + '&toolbar=0&navpanes=0&view=FitH';
-    $('open-source').href = url;
-    if (mobileReader && frame) return;
-    // A fragment change on an existing Chrome PDF plugin leaves its page in place.
-    frame = el('iframe','');
-    frame.title = song.title + ' lyrics and chords · ' + song.sheet.publisher;
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.src = mobileReader ? 'https://docs.google.com/gview?embedded=true&url=' + encodeURIComponent(song.sheet.pdf) : url;
-    $('published-page').replaceChildren(frame);
+  function makeShape(name) {
+    const b = el('button',name);
+    b.className = 'chord-shape';
+    const [frets,fingers] = shapes[name];
+    const strings = [...frets].map((f,i) => 'GCEA'[i] + ' ' + (f === '0' ? 'open' : 'fret ' + f + ', finger ' + fingers[i]));
+    b.setAttribute('aria-label','Hear ' + name + ' chord. ' + strings.join(', '));
+    b.append(diagram(name)); b.onclick = () => audition(name); chordButtons.set(name,b);
+    return b;
   }
+  async function lyrics() {
+    const current = song;
+    request?.abort(); request = new AbortController();
+    const signal = request.signal;
+    const timeout = setTimeout(() => request?.signal === signal && request.abort(),12000);
+    $('lyric-status').hidden = true;
+    try {
+      const result = await loadWords(lyricTiming[current.id],signal);
+      if (song !== current || signal.aborted) return;
+      words = result; draw();
+    } catch {
+      if (song === current && request.signal === signal) $('lyric-status').hidden = false;
+    } finally { clearTimeout(timeout); }
+  }
+  $('retry-lyrics').onclick = lyrics;
   function load(s) {
-    close(); song = s; chordButtons = new Map(); barButtons = [];
-    $('time-signature').textContent = s.meter.join('/') + ' time';
+    close(); song = s; firstBar = 0; lastBar = s.bars.length - 1;
+    chordButtons = new Map();
     $('pattern-note').textContent = s.pattern.tip;
     patternCells = s.pattern.counts.map((count,i) => {
-      const cell = el('span',''), arrow = s.pattern.strokes[i];
-      cell.setAttribute('aria-label', count + ' ' + ({D:'down',U:'up','-':'hold'})[arrow]);
-      cell.append(el('small',count),el('b',({D:'↓',U:'↑','-':'·'})[arrow]));
-      if (s.pattern.accents.includes(i)) cell.className = 'accent';
+      const cell = el('span',''), stroke = s.pattern.strokes[i];
+      const accented = s.pattern.accents.includes(i);
+      cell.setAttribute('aria-label',count + (accented ? ' accented ' : ' ') + ({D:'downstroke',U:'upstroke','-':'hold'})[stroke]);
+      const accent = el('i',accented ? '>' : '');
+      accent.setAttribute('aria-hidden','true');
+      cell.append(el('small',count),accent,el('b',({D:'↓',U:'↑','-':'·'})[stroke]));
+      if (accented) cell.className = 'accent';
       return cell;
     });
     $('pattern').replaceChildren(...patternCells);
-    $('chord-shapes').replaceChildren(...s.chords.map(name => {
-      const b = el('button',name);
-      b.className = 'chord-shape';
-      const [frets,fingers] = shapes[name];
-      const label = name + ' chord. ' + [...frets].map((f,i) => 'GCEA'[i] + ' ' + (f === '0' ? 'open' : 'fret ' + f + ', finger ' + fingers[i])).join('; ');
-      b.setAttribute('aria-label','Hear ' + label); b.title = label;
-      b.append(diagram(name)); b.onclick = () => audition(name); chordButtons.set(name,b);
-      return b;
-    }));
-    const credit = el('a', s.sheet.publisher);
-    credit.href = s.sheet.site; credit.target = '_blank'; credit.rel = 'noopener';
-    $('source-credit').replaceChildren('Song sheet from ',credit,'.');
-    showPage(1);
-    $('chord-map').open = false;
-    $('changes').replaceChildren(...s.sections.map(part => {
-      const section = el('section',''), row = el('div','');
-      row.className = 'bar-list'; section.append(el('h4',part.label),row);
-      for (let i = part.first; i <= part.last; i++) {
-        const names = s.bars[i].filter(e => e.change).map(e => e.chord).join(' · ');
-        const b = el('button',names); b.title = 'Go to bar ' + (i+1); b.setAttribute('aria-label', b.title + ', ' + names);
-        b.onclick = () => seek(i); barButtons[i] = b; row.append(b);
-      }
-      return section;
-    }));
+    $('chord-shapes').replaceChildren(...s.chords.map(makeShape));
+    lyrics();
   }
-  function mark(event, nextChord) {
-    if (prevEvent) {
-      patternCells[prevEvent.phase].classList.remove('current');
-      chordButtons.get(prevEvent.chord).classList.remove('current');
-      barButtons[prevEvent.bar].removeAttribute('aria-current');
+  function makeLine(events, mapping) {
+    const row = el('div',''); row.className = 'chart-line';
+    const text = words && mapping ? words.slice(mapping[0],mapping[1]).join(' ') : '';
+    const changes = events.filter(e => e.change), segments = [];
+    for (const [i,event] of changes.entries()) {
+      const offset = text ? mapping[2][i] : null;
+      const prev = segments.at(-1);
+      if (prev && prev.event.chord === event.chord && (offset == null || offset === prev.offset)) continue;
+      segments.push({event,offset:offset ?? 0});
+    }
+    if (text && segments[0].offset > 0) {
+      const lead = el('span',text.slice(0,segments[0].offset));
+      lead.className = 'lyric-lead'; row.append(lead);
+    }
+    let index = 0;
+    for (const [i,segment] of segments.entries()) {
+      const {event,offset} = segment, next = segments[i+1];
+      const cell = el('button','');
+      cell.type = 'button'; cell.className = 'chart-cell'; cell.tabIndex = -1;
+      cell.dataset.event = event.index;
+      const phrase = text.slice(offset,next?.offset ?? text.length);
+      const name = el('strong',event.chord);
+      const endBeat = next?.event.beat ?? events.at(-1).beat + events.at(-1).beats;
+      const bars = (endBeat - event.beat) / song.pattern.beats;
+      if (!phrase && Number.isInteger(bars) && bars > 1) name.append(el('small',' ×' + bars));
+      cell.title = 'Bar ' + (event.bar+1) + ' · ' + event.chord;
+      cell.setAttribute('aria-label',cell.title + (phrase ? ', ' + phrase : ''));
+      cell.append(name);
+      if (phrase) cell.append(el('span',phrase));
+      else cell.classList.add('instrumental');
+      row.append(cell);
+      while (index < events.length && events[index].index < (next?.event.index ?? Infinity)) {
+        cellsByEvent[events[index++].index] = cell;
+      }
+    }
+    return row;
+  }
+  function draw() {
+    if (!song) return;
+    const sections = [], timing = lyricTiming[song.id];
+    cellsByEvent = []; selectedCell = undefined;
+    song.sections.forEach((part,i) => {
+      if (part.last < firstBar || part.first > lastBar) return;
+      const section = el('section',''); section.className = 'chart-section'; section.append(el('h3',part.label));
+      const starts = song.parts[i].lines ?? [0];
+      starts.forEach((start,j) => {
+        const begin = part.first + start, end = starts[j+1] == null ? part.last+1 : part.first+starts[j+1];
+        section.append(makeLine(song.bars.slice(begin,end).flat(),timing.sections[i][j]));
+      });
+      sections.push(section);
+    });
+    chart.replaceChildren(...sections);
+    if (lastEvent) mark(lastEvent);
+  }
+  function range(first,last) { firstBar = first; lastBar = last; draw(); }
+  function mark(event, follow = false) {
+    if (lastEvent) {
+      patternCells[lastEvent.phase].classList.remove('current');
+      chordButtons.get(lastEvent.chord).classList.remove('current');
     }
     patternCells[event.phase].classList.add('current');
     chordButtons.get(event.chord).classList.add('current');
-    barButtons[event.bar].setAttribute('aria-current','true');
-    $('current-chord').textContent = event.chord;
-    $('next-chord').textContent = nextChord ? 'Next ' + nextChord : 'Ending';
-    const cue = [event.part];
-    if (event.line) cue.push('line ' + event.line);
-    if (song.parts.some(part => part.page > 1)) cue.push('p. ' + event.page);
-    $('phrase-cue').textContent = cue.join(' · ');
-    showPage(event.page);
-    prevEvent = event;
+    const next = cellsByEvent[event.index];
+    if (next && next !== selectedCell) {
+      const previousRow = selectedCell?.parentElement;
+      if (selectedCell) { selectedCell.removeAttribute('aria-current'); selectedCell.tabIndex = -1; }
+      selectedCell = next; next.tabIndex = 0; next.setAttribute('aria-current','true');
+      if (follow && previousRow !== next.parentElement) {
+        const r = next.getBoundingClientRect(), controls = document.querySelector('.transport').getBoundingClientRect();
+        if (r.top < controls.bottom || r.bottom > innerHeight) next.scrollIntoView({block:'center',behavior:'instant'});
+      }
+    }
+    lastEvent = event;
   }
-  return {load,mark,close};
+  chart.onclick = e => {
+    const cell = e.target.closest('.chart-cell');
+    if (cell) seek(Number(cell.dataset.event));
+  };
+  chart.onkeydown = e => {
+    if (!e.target.matches('.chart-cell') || !['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+    const cells = [...chart.querySelectorAll('.chart-cell')];
+    const i = cells.indexOf(e.target);
+    const index = {Home:0,End:cells.length-1,ArrowRight:i+1,ArrowLeft:i-1}[e.key];
+    e.preventDefault();
+    if (cells[index]) { cells[index].focus(); seek(Number(cells[index].dataset.event)); }
+  };
+  return {load,range,mark,close};
 }

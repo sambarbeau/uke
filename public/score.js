@@ -1,4 +1,4 @@
-import { durations, fingering, strings, barNumber } from './music.js';
+import { fingering, strings, barNumber } from './music.js';
 
 function svgElement(name, attrs, text) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', name);
@@ -39,98 +39,54 @@ export function drawFingerboard(container, song) {
   };
 }
 
+// Each quarter beat occupies the same horizontal space within a system.
+// Long sung syllables increase the minimum spacing before bars wrap.
 export function drawScore(container, song, firstBar, lastBar) {
-  const VF = window.Vex.Flow;
   const width = Math.floor(container.clientWidth);
   if (!width) return;
   const rows = [];
   let row = [], used = 0;
   for (const bar of song.bars.slice(firstBar, lastBar + 1)) {
-    const weight = 18 + bar.reduce((sum, n) => sum + Math.max(29, n.lyric.length * 7 + 8), 0);
-    if (row.length && (used + weight + 85 > width || row.length === 4)) {
+    const beats = bar.reduce((sum,n) => sum + n.beats,0);
+    const unit = Math.max(29, ...bar.map(n => (n.lyric.length * 9 + 10) / n.beats));
+    const natural = beats * unit + 12;
+    if (row.length && (used+natural+29 > width || row.length === 4)) {
       rows.push(row); row = []; used = 0;
     }
-    row.push({ bar, weight }); used += weight;
+    row.push({bar,beats,natural}); used += natural;
   }
   if (row.length) rows.push(row);
-  container.replaceChildren();
-  const ink = '#082f49', paper = '#f8f7f3';
-  for (const measures of rows) {
-    const line = document.createElement('div');
-    line.className = 'system';
-    container.append(line);
-    const renderer = new VF.Renderer(line, VF.Renderer.Backends.SVG);
-    const lyrics = measures.some(({ bar }) => bar.some(n => n.lyric));
-    const offset = lyrics ? 17 : 0;
-    const height = 147 + offset;
-    renderer.resize(width, height);
-    const ctx = renderer.getContext();
-    ctx.setFillStyle(ink).setStrokeStyle(ink).setBackgroundFillStyle(paper);
-    const svg = line.querySelector('svg');
+  const systems = rows.map(measures => {
+    const wrap = document.createElement('div'); wrap.className = 'system';
     const first = measures[0].bar[0].bar;
-    svg.setAttribute('role', 'group');
-    svg.setAttribute('aria-label', barNumber(song,first) + ' through ' + barNumber(song,first + measures.length - 1));
-    const weightSum = measures.reduce((sum, m) => sum + m.weight, 0);
-    const lead = first === firstBar ? 68 : 46;
-    const available = width - 10 - lead;
-    let x = 4;
-    const engravings = new Map();
-    measures.forEach(({ bar, weight }, m) => {
-      const start = m === 0;
-      const barWidth = available * weight / weightSum + (start ? lead : 0);
-      const stave = new VF.Stave(x, -1 + offset, barWidth);
-      const tab = new VF.TabStave(x, 69 + offset, barWidth, { num_lines:4, spacing_between_lines_px:10 });
-      if (start) {
-        stave.addClef('treble').addKeySignature(song.key);
-        if (first === firstBar) stave.addTimeSignature(song.meter.join('/'));
-
-      } else {
-        stave.setBegBarType(VF.Barline.type.NONE); tab.setBegBarType(VF.Barline.type.NONE);
-      }
-      if (bar[0].bar === song.bars.length - 1) {
-        stave.setEndBarType(VF.Barline.type.END); tab.setEndBarType(VF.Barline.type.END);
-      }
-      stave.setContext(ctx).draw(); tab.setContext(ctx).draw();
-      tab.setNoteStartX(stave.getNoteStartX());
-      if (start) new VF.StaveConnector(stave, tab).setType(VF.StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
-      if (start) {
-        // Label each tab line with its string, in playing order.
-        svg.append(svgElement('rect', { x:x+3, y:tab.getYForLine(0)-8, width:18, height:46, fill:paper, stroke:'none' }));
-        strings.forEach((string,i) => svg.append(svgElement('text', { x:x+12, y:tab.getYForLine(i)+3.5,
-          'text-anchor':'middle', 'font-family':'Georgia, serif', 'font-size':12, fill:ink, stroke:'none' }, string.name)));
-      }
-      const notes = bar.map(n => {
-        const note = new VF.StaveNote({ keys:[n.key], duration:durations[n.beats], auto_stem:true });
-        if (durations[n.beats].endsWith('d')) VF.Dot.buildAndAttach([note]);
-        return note;
-      });
-      const frets = bar.map(n => new VF.TabNote({ positions:[{ str:n.string, fret:n.fret }], duration:durations[n.beats] }));
-      const time = { num_beats:song.meter[0], beat_value:song.meter[1] };
-      const voiceMode = song.pickup && (bar[0].bar === 0 || bar[0].bar === song.bars.length - 1) ? VF.Voice.Mode.SOFT : VF.Voice.Mode.STRICT;
-      const melody = new VF.Voice(time).setMode(voiceMode).addTickables(notes);
-      const tablature = new VF.Voice(time).setMode(voiceMode).addTickables(frets);
-      VF.Accidental.applyAccidentals([melody], song.key);
-      const beams = VF.Beam.generateBeams(notes, { groups:VF.Beam.getDefaultBeamGroups(song.meter.join('/')) });
-      new VF.Formatter().joinVoices([melody]).joinVoices([tablature]).formatToStave([melody, tablature], stave);
-      melody.draw(ctx, stave); tablature.draw(ctx, tab);
-      beams.forEach(b => b.setContext(ctx).draw());
-      const centers = notes.map(n => n.getNoteHeadBeginX() + n.getGlyphWidth()/2);
-      bar.forEach((n, j) => {
-        const center = centers[j];
-        engravings.set(n.index,notes[j]);
-        if (n.lyric) svg.append(svgElement('text', { x:center, y:23, 'text-anchor':'middle', class:'lyric' }, n.lyric));
-        const left = j ? (centers[j-1] + center)/2 : center - Math.min(18, center - x);
-        const right = centers[j+1] ? (center + centers[j+1])/2 : x + barWidth - 2;
-        svg.append(svgElement('rect', { x:left, y:lyrics ? 5 : 12, width:Math.max(1,right-left), height:height - (lyrics ? 12 : 19),
-          rx:3, class:'note-target', 'data-index':n.index, role:'button', tabindex:-1,
-          'aria-label':barNumber(song,n.bar) + ', ' + n.pitch + ', ' + fingering(n) + (n.lyric ? ', ' + n.lyric : '') }));
-      });
-      x += barWidth;
+    const svg = svgElement('svg',{viewBox:'0 0 ' + width + ' 108',role:'group',
+      'aria-label':barNumber(song,first)+' through '+barNumber(song,first+measures.length-1)});
+    wrap.append(svg);
+    const left = 25, right = width - 3, top = 43, gap = 14;
+    strings.forEach((string,i) => {
+      const y = top+i*gap;
+      svg.append(svgElement('text',{x:5,y:y+4,class:'tab-label'},string.name));
+      svg.append(svgElement('line',{x1:left,x2:right,y1:y,y2:y,class:'tab-rule'}));
     });
-    const tie = (left, right) => new VF.StaveTie({first_note:left,last_note:right,first_indices:[0],last_indices:[0]}).setContext(ctx).draw();
-    for (const [index, note] of engravings) {
-      if (song.events[index].tied) tie(engravings.get(index-1),note);
-      if (song.events[index+1]?.tied && !engravings.has(index+1)) tie(note,undefined);
+    let x = left;
+    const total = measures.reduce((sum,m)=>sum+m.natural,0);
+    svg.append(svgElement('line',{x1:left,x2:left,y1:top,y2:top+3*gap,class:'tab-rule'}));
+    for (const {bar,beats,natural} of measures) {
+      const span = (right-left) * natural / total, unit = (span-10)/beats;
+      const centers = bar.map(n => x+5+(n.beat-bar[0].beat+.5*Math.min(1,n.beats))*unit);
+      bar.forEach((n,j) => {
+        const cx = centers[j], y = top + (n.string-1)*gap;
+        if (n.lyric) svg.append(svgElement('text',{x:cx,y:21,'text-anchor':'middle',class:'lyric'},n.lyric));
+        svg.append(svgElement('text',{x:cx,y:y+4.5,'text-anchor':'middle',class:'tab-fret'},n.tied?'('+n.fret+')':n.fret));
+        const start = j ? (centers[j-1]+cx)/2 : x;
+        const end = j+1 < bar.length ? (centers[j+1]+cx)/2 : x+span;
+        svg.append(svgElement('rect',{x:start,y:2,width:end-start,height:94,rx:3,class:'note-target',
+          'data-index':n.index,role:'button',tabindex:-1,'aria-label':barNumber(song,n.bar)+', '+(n.tied?'hold ':'')+n.pitch+', '+fingering(n)+(n.lyric?', '+n.lyric:'')}));
+      });
+      x += span;
+      svg.append(svgElement('line',{x1:x,x2:x,y1:top,y2:top+3*gap,class:'tab-rule'}));
     }
-  }
+    return wrap;
+  });
+  container.replaceChildren(...systems);
 }

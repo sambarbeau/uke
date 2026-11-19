@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readSong, strings, frequency } from '../public/music.js';
 import { readStrumSong, shapes, chordNotes } from '../public/chords.js';
 import { songs } from '../public/songs.js';
+import { lyricTiming } from '../public/lyric-timing.js';
 import { detectPitch, tuningReading } from '../public/pitch.js';
 
 test('every bar, syllable, pitch and fingering in the songbook stays in sync', () => {
@@ -21,7 +22,7 @@ test('every bar, syllable, pitch and fingering in the songbook stays in sync', (
   }
 });
 test('an authored alternative string keeps the pitch and rejects invalid lyrics and rhythm', () => {
-  const raw = {...songs.find(s => s.id === 'twinkle'), bars:[['G4@2:4','Sing']]};
+  const raw = {meter:[4,4], bars:[['G4@2:4','Sing']]};
   assert.deepEqual([readSong(raw).events[0].string,readSong(raw).events[0].fret], [2,3]);
   for (const bars of [[['C4:4','Too many']], [['C4:3']], [['C4@1:4']]]) assert.throws(() => readSong({...raw,bars}));
 });
@@ -104,9 +105,32 @@ test('Lava counts its silent upstroke and Elvis counts six subdivisions in two p
   const lava = readStrumSong(songs.find(s => s.id === 'lava'));
   assert.equal(lava.bars[0][0].soundEnd,1);
   assert.equal(lava.bars[0][1].stroke,'-');
-  assert.deepEqual([...new Set(lava.events.map(e=>e.page))],[1,2,3]);
+  assert.deepEqual(lava.bars[0].filter(e => e.accent).map(e => [e.beat,e.stroke]),[[1,'D'],[3,'D']]);
   const love = readStrumSong(songs.find(s => s.id === 'cant-help-falling-in-love'));
   assert.equal(love.bars[1][0].beat,2); assert.equal(love.bars[0][3].beat,1);
   const bridge = love.sections[3];
   assert.deepEqual(love.bars[bridge.last].map(e => e.stroke),['D','-','-','D','-','-']);
+});
+
+test('the four-song library maps each lyric line to its timed chord attacks', () => {
+  assert.deepEqual(songs.map(s=>s.id),['cielito-lindo','lava','cant-help-falling-in-love','yesterday']);
+  for (const raw of songs.filter(s=>s.pattern)) {
+    const timing = lyricTiming[raw.id], song = readStrumSong(raw);
+    let nextWord = 0;
+    assert.equal(timing.sections.length,song.sections.length);
+    song.sections.forEach((part,i) => {
+      const starts = raw.parts[i].lines ?? [0];
+      const lines = timing.sections[i];
+      if (part.label === 'Intro') { assert.equal(lines.length,0); return; }
+      assert.equal(lines.length,starts.length);
+      lines.forEach(([from,to,anchors],j) => {
+        const first = part.first + starts[j], end = j+1 < starts.length ? part.first + starts[j+1] : part.last+1;
+        assert.equal(from,nextWord); assert.ok(to > from); nextWord = to;
+        assert.equal(anchors.length,song.bars.slice(first,end).flat().filter(e=>e.change).length);
+        const positions = anchors.filter(a=>a !== null);
+        assert.ok(positions.every((v,k)=>Number.isInteger(v) && v>=0 && (!k || v>=positions[k-1])));
+      });
+    });
+    assert.equal(nextWord,timing.wordCount);
+  }
 });
